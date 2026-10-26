@@ -10,5 +10,8 @@
   "requirements": [],
   "version": "0.1.0",
   "config_flow": true,
-  "integration_type": "hub"
+  "integration_type": "hub",
+  "dependencies": [
+    "http"
+  ]
 }

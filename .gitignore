@@ -11,3 +11,4 @@ htmlcov/
 *.apk
 *.har
 *.log
+node_modules/
