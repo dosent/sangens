@@ -1,0 +1,45 @@
+# Отдельный вид общей панели «Обзор». Замените идентификаторы своими.
+title: Сауна
+path: sauna
+type: sections
+max_columns: 2
+sections:
+  - type: grid
+    cards:
+      - type: custom:sangens-card
+        entity: climate.sauna_vozdukh
+        title: Сауна
+        mode_entity: select.sauna_rezhim
+  - type: grid
+    cards:
+      - type: heading
+        heading: Подробнее о сауне
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Параметры сауны
+            show_header_toggle: false
+            entities:
+              - type: simple-entity
+                entity: select.sauna_rezhim
+                name: Режим
+              - type: attribute
+                entity: climate.sauna_vozdukh
+                attribute: temperature
+                name: Воздух — задано
+                suffix: °C
+                icon: mdi:thermometer
+              - type: attribute
+                entity: climate.sauna_vozdukh
+                attribute: stone_target_temperature
+                name: Камни — задано
+                suffix: °C
+                icon: mdi:fire
+          - type: history-graph
+            title: Температура за 6 часов
+            hours_to_show: 6
+            entities:
+              - entity: climate.sauna_vozdukh
+                name: Воздух
+              - entity: sensor.sauna_kamni
+                name: Камни
