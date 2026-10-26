@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.superpowers/
+.DS_Store
+.env
+.env.*
+*.mp4
+*.apk
+*.har
+*.log
