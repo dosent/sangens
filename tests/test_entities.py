@@ -59,3 +59,24 @@ async def test_повторная_загрузка_сохраняет_настр
     assert entity_id(hass, 'climate', 'air') == before
     assert len(hass.config_entries.async_entries('sangens')) == 1
     assert all(call[0] == 'GET' for call in calls)
+
+async def test_поздние_данные_добавляют_сущности_без_перезапуска(hass, device_data):
+    bounds = device_data['mode']['data'].copy()
+    device_data['mode']['data'].pop('minHeaterTemp')
+    device_data['mode']['data'].pop('maxHeaterTemp')
+    async def response(self, method, path, payload=None):
+        return [device_data['mode']] if path == '/modes' else device_data
+    entry = MockConfigEntry(domain='sangens', data={'access_token':'synthetic-token','binding_ids':['binding-17'],'microchip_ids':{'binding-17':'chip-42'}})
+    entry.add_to_hass(hass)
+    with patch.object(SangensClient, '_request', response):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        assert entity_id(hass,'number','stone_target') is None
+        assert entity_id(hass,'sensor','second_stone') is None
+        device_data['mode']['data'].update(bounds)
+        device_data['microchip']['data']['secondStoneTemperature'] = 79
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+        assert entity_id(hass,'number','stone_target') is not None
+        assert hass.states.get(entity_id(hass,'sensor','second_stone')).state == '79.0'
+        await hass.config_entries.async_unload(entry.entry_id)

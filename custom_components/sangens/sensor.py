@@ -5,12 +5,22 @@ from .entity import SangensEntity
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = entry.runtime_data
-    entities = []
-    for binding, state in coordinator.data.items():
-        entities.append(SangensTemperature(coordinator, binding, 'stone', 'Камни', 'stone_temperature'))
-        if state.second_stone_temperature is not None:
-            entities.append(SangensTemperature(coordinator, binding, 'second_stone', 'Камни — второй датчик', 'second_stone_temperature'))
-    async_add_entities(entities)
+    added = set()
+    def discover():
+        entities = []
+        for binding, state in (coordinator.data or {}).items():
+            for suffix, name, field, present in (
+                ('stone', 'Камни', 'stone_temperature', True),
+                ('second_stone', 'Камни — второй датчик', 'second_stone_temperature', state.second_stone_temperature is not None),
+            ):
+                key = (binding, suffix)
+                if present and key not in added:
+                    added.add(key)
+                    entities.append(SangensTemperature(coordinator, binding, suffix, name, field))
+        if entities:
+            async_add_entities(entities)
+    entry.async_on_unload(coordinator.async_add_listener(discover))
+    discover()
 
 class SangensTemperature(SangensEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE

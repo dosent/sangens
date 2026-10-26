@@ -80,3 +80,65 @@ async def test_повторный_вход_и_увеличение_интерв�
     client.get_device.side_effect = SangensAuthError('Нужен вход')
     with pytest.raises(ConfigEntryAuthFailed):
         await state._async_update_data()
+
+async def test_причина_отказа_входа_и_восстановление(coordinator):
+    state, client, _ = coordinator
+    client.get_device.side_effect = SangensAuthError('Нужен вход')
+    with pytest.raises(ConfigEntryAuthFailed):
+        await state._async_update_data()
+    assert state.auth_required is True
+    client.get_device.side_effect = None
+    await state._async_update_data()
+    assert state.auth_required is False
+
+async def test_две_печи_получают_свои_команды(coordinator, hass):
+    state, client, entry = coordinator
+    first = client.get_device.return_value
+    second = replace(first, binding_id='binding-99', microchip_id='chip-88', title='Вторая сауна')
+    hass.config_entries.async_update_entry(entry,data={**entry.data,'binding_ids':['binding-17','binding-99'],'microchip_ids':{'binding-17':'chip-42','binding-99':'chip-88'}})
+    async def get_device(binding):
+        return first if binding=='binding-17' else second
+    client.get_device.side_effect = get_device
+    await state.async_refresh()
+    await state.async_power('binding-17',False)
+    await state.async_power('binding-99',False)
+    assert client.set_power.await_args_list[0].args == ('chip-42',False)
+    assert client.set_power.await_args_list[1].args == ('chip-88',False)
+    assert set(state.data) == {'binding-17','binding-99'}
+
+async def test_частые_ошибки_замедляют_опрос_и_успех_сбрасывает_паузу(coordinator):
+    from custom_components.sangens.api import SangensConnectionError
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+    state, client, _ = coordinator
+    client.get_device.side_effect = SangensConnectionError('Нет связи')
+    for expected in (60,120,240,300,300):
+        with pytest.raises(UpdateFailed):
+            await state._async_update_data()
+        assert state.update_interval.total_seconds() == expected
+    client.get_device.side_effect = None
+    await state._async_update_data()
+    assert state.update_interval.total_seconds() == 30
+
+async def test_устаревшие_данные_не_позволяют_запуск(coordinator):
+    state, client, _ = coordinator
+    state._last_success -= 61
+    with pytest.raises(HomeAssistantError):
+        await state.async_power('binding-17',True)
+    assert client.set_power.await_count == 0
+
+async def test_вторая_команда_не_ставится_в_очередь(coordinator):
+    state, client, _ = coordinator
+    started, finish = asyncio.Event(), asyncio.Event()
+    async def pending(*args):
+        started.set()
+        await finish.wait()
+    client.set_power.side_effect = pending
+    first = asyncio.create_task(state.async_power('binding-17',False))
+    await started.wait()
+    try:
+        with pytest.raises(HomeAssistantError):
+            await state.async_power('binding-17',True)
+    finally:
+        finish.set()
+        await first
+    assert client.set_power.await_count == 1

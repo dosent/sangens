@@ -38,3 +38,23 @@ async def test_повторный_вход_не_подменяет_печь(hass
         result = await hass.config_entries.flow.async_configure(result['flow_id'], {"access_token": "new"})
     assert result['errors'] == {'base': 'wrong_account'}
     assert entry.data['access_token'] == 'old'
+
+async def test_успешный_повторный_вход_сохраняет_общую_запись(hass, device_data):
+    entry = MockConfigEntry(domain='sangens', unique_id='shared', data={'access_token':'old','binding_ids':['binding-17'],'microchip_ids':{'binding-17':'chip-42'}}, options={'allow_control':False})
+    entry.add_to_hass(hass)
+    with patch('custom_components.sangens.api.SangensClient._request', AsyncMock(return_value={'items':[device_data]})), patch.object(hass.config_entries,'async_reload',AsyncMock(return_value=True)):
+        result = await hass.config_entries.flow.async_init('sangens',context={'source':'reauth','entry_id':entry.entry_id},data=entry.data)
+        result = await hass.config_entries.flow.async_configure(result['flow_id'],{'access_token':'new-token'})
+    assert result['type'] is FlowResultType.ABORT
+    assert result['reason'] == 'reauth_successful'
+    assert entry.data['access_token'] == 'new-token'
+    assert entry.data['binding_ids'] == ['binding-17']
+    assert entry.options['allow_control'] is False
+    assert len(hass.config_entries.async_entries('sangens')) == 1
+
+async def test_сохранённое_подключение_не_требует_нового_входа(hass):
+    entry = MockConfigEntry(domain='sangens', unique_id='shared', data={'access_token':'persisted-token','binding_ids':['binding-17'],'microchip_ids':{'binding-17':'chip-42'}})
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init('sangens', context={'source':'user'})
+    assert result['type'] is FlowResultType.ABORT
+    assert result['reason'] == 'already_configured'

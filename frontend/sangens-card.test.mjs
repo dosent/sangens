@@ -53,3 +53,35 @@ test('ошибка службы видна без подмены показан�
  assert.match(card.shadowRoot.querySelector('[data-error]').textContent,/Нет связи с печью/);
  assert.match(card.shadowRoot.querySelector('[data-current]').textContent,/28,7/);
 });
+
+test('при неизвестном питании доступная печь может получить явное выключение',async()=>{
+ const unknown=entity('unknown');unknown.attributes.connection_available=true;
+ card.hass={states:{'climate.sauna':unknown},callService:async(...args)=>calls.push(args)};
+ assert.equal(card.shadowRoot.querySelector('[data-stop]').disabled,false);
+ card.shadowRoot.querySelector('[data-stop]').click();await new Promise(resolve=>setTimeout(resolve,0));
+ assert.deepEqual(calls[0],['climate','turn_off',{entity_id:'climate.sauna'}]);
+ assert.equal(card.shadowRoot.querySelector('[data-start]').disabled,true);
+});
+test('истечение входа отличается от отсутствия связи',()=>{
+ const expired=entity('unavailable');expired.attributes.auth_required=true;
+ card.hass={states:{'climate.sauna':expired}};
+ assert.equal(card.shadowRoot.querySelector('[data-status]').textContent,'Нужен вход');
+ assert.equal(card.shadowRoot.querySelector('video').hidden,true);
+});
+test('прерванное скрытием видео возобновляется после возврата',async()=>{
+ const video=card.shadowRoot.querySelector('video');let rejectFirst;let attempts=0;
+ video.play=()=>{attempts++;return attempts===1?new Promise((resolve,reject)=>rejectFirst=reject):Promise.resolve();};
+ video.pause=()=>{};
+ Object.defineProperty(video,'paused',{configurable:true,get:()=>true});
+ card._videoFailed=false;card._visible=true;card._update();
+ card._visible=false;card._update();rejectFirst(Object.assign(new Error('Остановлено'),{name:'AbortError'}));
+ await new Promise(resolve=>setTimeout(resolve,0));
+ card._visible=true;card._update();assert.equal(video.hidden,false);assert.ok(attempts>=2);
+});
+test('запрет автопроигрывания оставляет рабочий статичный фон',async()=>{
+ const video=card.shadowRoot.querySelector('video');
+ video.play=()=>Promise.reject(Object.assign(new Error('Запрещено'),{name:'NotAllowedError'}));
+ Object.defineProperty(video,'paused',{configurable:true,get:()=>true});
+ card._videoFailed=false;card._update();await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(video.hidden,true);assert.equal(card.shadowRoot.querySelector('[data-stop]').disabled,false);
+});

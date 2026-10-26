@@ -5,7 +5,17 @@ from .entity import SangensEntity
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = entry.runtime_data
-    async_add_entities(SangensStoneTarget(coordinator, binding) for binding, state in coordinator.data.items() if state.stone_limits is not None)
+    added = set()
+    def discover():
+        entities = []
+        for binding, state in (coordinator.data or {}).items():
+            if state.stone_limits is not None and binding not in added:
+                added.add(binding)
+                entities.append(SangensStoneTarget(coordinator, binding))
+        if entities:
+            async_add_entities(entities)
+    entry.async_on_unload(coordinator.async_add_listener(discover))
+    discover()
 
 class SangensStoneTarget(SangensEntity, NumberEntity):
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS

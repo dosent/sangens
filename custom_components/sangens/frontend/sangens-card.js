@@ -83,8 +83,9 @@ class SangensCard extends HTMLElement {
     if(!this._config)return;
     const state=this._hass?.states?.[this._config.entity];const attrs=state?.attributes||{};
     const known=state&&['off','heat'].includes(state.state);const on=known&&state.state==='heat';
+    const reachable=!!state&&state.state!=='unavailable'&&(known||attrs.connection_available===true);
     const writable=known&&attrs.control_allowed===true&&!this._pending;
-    const status=!state?'Сущность не найдена':state.state==='unavailable'?'Нет связи':!known?'Состояние неизвестно':!on?'Выключена':attrs.hvac_action==='heating'?'Нагревает':'Включена';
+    const status=!state?'Сущность не найдена':attrs.auth_required?'Нужен вход':state.state==='unavailable'?'Нет связи':!known?'Состояние неизвестно':!on?'Выключена':attrs.hvac_action==='heating'?'Нагревает':'Включена';
     this._find('ha-card').classList.toggle('active',!!on);
     this._find('[data-title]').textContent=this._config.title||'Сауна';
     this._find('[data-status]').textContent=this._pending?'Отправка команды…':status;
@@ -97,8 +98,8 @@ class SangensCard extends HTMLElement {
     if(this.shadowRoot.activeElement!==slider && Number.isFinite(attrs.temperature))slider.value=attrs.temperature;
     this._find('[data-range]').textContent=limits?`${attrs.min_temp}–${attrs.max_temp} °C`:'';
     this._find('[data-start]').disabled=!(writable&&!on&&limits&&Number.isFinite(attrs.current_temperature));
-    this._find('[data-stop]').disabled=!writable;
-    this._find('[data-note]').textContent=attrs.control_allowed!==true?'Только чтение. Управление разрешается администратором в настройках интеграции.':!on?'Печь не запустится от изменения настроек или открытия карточки.':'Показания обновляются через Home Assistant.';
+    this._find('[data-stop]').disabled=!(reachable&&attrs.control_allowed===true&&!this._pending);
+    this._find('[data-note]').textContent=attrs.auth_required?'Администратору нужно восстановить подключение в настройках интеграции Sangens.':attrs.control_allowed!==true?'Только чтение. Управление разрешается администратором в настройках интеграции.':!on?'Печь не запустится от изменения настроек или открытия карточки.':'Показания обновляются через Home Assistant.';
     const mode=this._hass?.states?.[this._config.mode_entity];const select=this._find('[data-mode]');
     select.hidden=!mode;this._find('[data-mode-label]').hidden=!mode;select.disabled=!(writable&&on);
     const choices=Array.isArray(mode?.attributes?.options)?mode.attributes.options:[];
@@ -107,7 +108,7 @@ class SangensCard extends HTMLElement {
     this._find('[data-error]').hidden=!this._error;this._find('[data-error]').textContent=this._error;
     const video=this._find('video');const animate=!!(on&&this._config.smoke_url&&this.isConnected&&this._visible&&!document.hidden&&!this._reducedMotion&&!this._videoFailed);
     video.hidden=!animate;
-    if(animate&&video.paused){video.muted=true;const promise=video.play();promise?.catch(()=>{this._videoFailed=true;video.hidden=true;});}else if(!animate)video.pause();
+    if(animate&&video.paused){video.muted=true;const promise=video.play();promise?.catch(error=>{if(error?.name==='AbortError')return;this._videoFailed=true;video.hidden=true;});}else if(!animate)video.pause();
   }
   async _service(domain,service,data={},entityId=this._config.entity){
     if(this._pending||!this._hass?.states?.[this._config.entity]?.attributes?.control_allowed)return;

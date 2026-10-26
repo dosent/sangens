@@ -21,6 +21,7 @@ class SangensCoordinator(DataUpdateCoordinator):
         self._lock = asyncio.Lock()
         self._last_success = 0.0
         self._failures = 0
+        self.auth_required = False
 
     async def _async_update_data(self):
         try:
@@ -33,11 +34,13 @@ class SangensCoordinator(DataUpdateCoordinator):
                     if state.microchip_id != self.entry.data['microchip_ids'][binding]:
                         raise SangensProtocolError("Изменилась привязка контроллера")
                     devices[binding] = replace(state, modes=modes)
+            self.auth_required = False
             self._last_success = time.monotonic()
             self._failures = 0
             self.update_interval = timedelta(seconds=POLL_SECONDS)
             return devices
         except SangensAuthError as err:
+            self.auth_required = True
             raise ConfigEntryAuthFailed("Требуется повторный вход в Sangens") from err
         except (SangensConnectionError, SangensProtocolError, SangensBusyError) as err:
             self._failures += 1
