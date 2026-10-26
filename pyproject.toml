@@ -6,7 +6,7 @@ requires-python = ">=3.14"
 dependencies = []
 
 [project.optional-dependencies]
-test = ["homeassistant==2026.10.4", "pytest", "pytest-asyncio", "pytest-homeassistant-custom-component"]
+test = ["homeassistant==2026.10.4", "pytest==9.0.3", "pytest-asyncio==1.4.0", "pytest-homeassistant-custom-component==0.13.375"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

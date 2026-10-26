@@ -1,0 +1,28 @@
+name: Тесты интеграции и карточки
+on:
+  push:
+  pull_request:
+jobs:
+  tests:
+    name: Проверки Python и JavaScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить исходники
+        uses: actions/checkout@v4
+      - name: Подготовить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Установить зависимости проверок
+        run: python -m pip install -r requirements-test.txt
+      - name: Проверить интеграцию
+        run: python -m pytest -q
+      - name: Подготовить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Установить зависимости карточки
+        run: npm ci
+      - name: Проверить карточку
+        run: npm test

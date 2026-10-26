@@ -29,7 +29,7 @@ class SangensCard extends HTMLElement {
         .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}button.action{border:1px solid #ffffff22;border-radius:15px;padding:15px 10px;min-height:50px;color:inherit;background:#ffffff0b;font-weight:550}.action.start{background:var(--sauna-accent);color:#252322;border-color:transparent}button:disabled,select:disabled,input:disabled{opacity:.4;cursor:default}
         .advanced{margin-top:18px;border-top:1px solid #ffffff12;padding-top:14px}.advanced summary{cursor:pointer;font-size:14px;color:#d1d1d5;padding:5px 0}.advanced label{display:block;font-size:13px;margin:14px 0 7px}select{width:100%;padding:12px;color:#fff;background:#30343c;border:1px solid #ffffff25;border-radius:10px}.stone-settings{width:100%;margin-top:12px;padding:12px;border-radius:10px;border:1px solid #ffffff25;background:transparent;color:inherit}
         .note{color:#bbbfc7;font-size:12px;line-height:1.5;margin:14px 0 0}.error{color:#ffb8af;font-size:13px;line-height:1.5;margin-top:12px}button:focus-visible,summary:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--sauna-accent);outline-offset:3px}
-        @media(max-width:360px){.content{padding:18px}.pill{padding:10px}.dial{width:220px}}@media(prefers-reduced-motion:reduce){video{display:none}}
+        @media(max-width:420px){.content{padding:22px}.measurements{margin:18px 0 10px}.dial{width:228px;margin:14px auto}.reading strong{font-size:60px}}@media(max-width:360px){.content{padding:18px}.pill{padding:10px}.dial{width:220px}}@media(prefers-reduced-motion:reduce){video{display:none}}
       </style>
       <ha-card>
         <video muted loop playsinline preload="none" hidden aria-hidden="true"></video><div class="shade"></div>
