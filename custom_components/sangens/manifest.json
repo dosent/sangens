@@ -4,14 +4,14 @@
   "codeowners": [
     "@dosent"
   ],
+  "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
   "documentation": "https://github.com/dosent/sangens",
+  "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/dosent/sangens/issues",
   "requirements": [],
-  "version": "0.1.0",
-  "config_flow": true,
-  "integration_type": "hub",
-  "dependencies": [
-    "http"
-  ]
+  "version": "0.1.0"
 }

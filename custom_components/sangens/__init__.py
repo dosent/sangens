@@ -5,8 +5,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import SangensClient
-from .const import PLATFORMS
+from homeassistant.helpers import config_validation as cv
+from .const import DOMAIN, PLATFORMS
 from .coordinator import SangensCoordinator
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass, config):
     await hass.http.async_register_static_paths([
