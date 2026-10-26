@@ -7,7 +7,7 @@ import time
 from homeassistant.config_entries import ConfigEntryAuthFailed
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from .api import SangensAuthError, SangensCommandUncertain, SangensConnectionError, SangensBusyError
+from .api import SangensAuthError, SangensRateLimited, SangensCommandUncertain, SangensConnectionError, SangensBusyError
 from .const import DOMAIN, POLL_SECONDS
 from .models import SangensProtocolError, number
 
@@ -22,8 +22,11 @@ class SangensCoordinator(DataUpdateCoordinator):
         self._last_success = 0.0
         self._failures = 0
         self.auth_required = False
+        self._blocked_until = 0.0
 
     async def _async_update_data(self):
+        if time.monotonic()<self._blocked_until:
+            raise UpdateFailed('Sangens попросил подождать перед следующим запросом')
         try:
             async with self._lock:
                 devices = {}
@@ -44,10 +47,16 @@ class SangensCoordinator(DataUpdateCoordinator):
             raise ConfigEntryAuthFailed("Требуется повторный вход в Sangens") from err
         except (SangensConnectionError, SangensProtocolError, SangensBusyError) as err:
             self._failures += 1
-            self.update_interval = timedelta(seconds=min(300, POLL_SECONDS * 2 ** min(self._failures, 4)))
+            delay=min(300,POLL_SECONDS*2**min(self._failures,4))
+            if isinstance(err,SangensRateLimited):
+                delay=max(delay,err.retry_after)
+                self._blocked_until=time.monotonic()+delay
+            self.update_interval=timedelta(seconds=delay)
             raise UpdateFailed("Нет достоверных данных Sangens") from err
 
     def _state_for_command(self, binding):
+        if time.monotonic()<self._blocked_until:
+            raise HomeAssistantError('Sangens попросил подождать перед следующим запросом')
         if not self.entry.options.get('allow_control', False):
             raise HomeAssistantError("Включён режим только чтения. Управление разрешается администратором в настройках интеграции")
         if not self.last_update_success or time.monotonic() - self._last_success > 60:
@@ -71,6 +80,9 @@ class SangensCoordinator(DataUpdateCoordinator):
                 self.entry.async_start_reauth(self.hass)
                 error = HomeAssistantError("Требуется повторный вход в Sangens")
             except (SangensConnectionError, SangensBusyError, SangensProtocolError) as err:
+                if isinstance(err,SangensRateLimited):
+                    self._blocked_until=time.monotonic()+err.retry_after
+                    self.update_interval=timedelta(seconds=err.retry_after)
                 error = HomeAssistantError(str(err))
         await self.async_refresh()
         if error:

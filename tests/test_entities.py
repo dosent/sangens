@@ -54,9 +54,11 @@ async def test_сервер_отклоняет_температуру_даже_�
 async def test_повторная_загрузка_сохраняет_настройку(hass, loaded):
     entry, calls = loaded
     before = entity_id(hass, 'climate', 'air')
+    saved_device_id=entry.data['device_id']
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert entity_id(hass, 'climate', 'air') == before
+    assert entry.data['device_id']==saved_device_id
     assert len(hass.config_entries.async_entries('sangens')) == 1
     assert all(call[0] == 'GET' for call in calls)
 

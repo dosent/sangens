@@ -1,8 +1,10 @@
 """Асинхронный клиент. Управляющие запросы никогда не повторяются."""
 import asyncio
+from uuid import uuid4
 from typing import Any
 import aiohttp
 from .const import API_URL
+from .headers import request_headers, retry_after_seconds
 from .models import DeviceMode, DeviceSnapshot, SangensProtocolError, identifier, number
 
 class SangensAuthError(Exception):
@@ -10,6 +12,12 @@ class SangensAuthError(Exception):
 
 class SangensConnectionError(Exception):
     """Сервис недоступен или ограничил частоту запросов."""
+
+class SangensRateLimited(SangensConnectionError):
+    """Сервис ограничил частоту и указал срок обязательной паузы."""
+    def __init__(self,message='Сервис попросил подождать перед повтором',*,retry_after=300):
+        super().__init__(message)
+        self.retry_after=max(300,int(retry_after))
 
 class SangensCommandUncertain(SangensConnectionError):
     """Неизвестно, успел ли контроллер принять команду."""
@@ -19,11 +27,12 @@ class SangensBusyError(Exception):
 
 
 class SangensClient:
-    def __init__(self, session: aiohttp.ClientSession, token: str, *, base_url: str = API_URL, timeout: float = 15):
+    def __init__(self, session: aiohttp.ClientSession, token: str, *, base_url: str = API_URL, timeout: float = 15, device_id: str | None = None):
         if not isinstance(token, str) or not token.strip() or any(c.isspace() for c in token):
             raise ValueError("Некорректный токен доступа")
         self._session = session
         self._token = token
+        self._device_id = device_id or uuid4().hex
         self._base_url = base_url.rstrip("/")
         self._timeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -31,14 +40,14 @@ class SangensClient:
         mutation = method != "GET"
         try:
             async with self._session.request(method, f"{self._base_url}{path}", json=payload,
-                headers={"Authorization": f"Bearer {self._token}"}, timeout=self._timeout,
+                headers=request_headers(self._device_id,self._token), timeout=self._timeout,
                 allow_redirects=False) as response:
                 if response.status in (401, 403):
                     raise SangensAuthError("Требуется повторный вход в Sangens")
                 if response.status == 409:
                     raise SangensBusyError("Печь ещё выполняет предыдущую команду")
                 if response.status == 429:
-                    raise SangensConnectionError("Сервис ограничил частоту запросов")
+                    raise SangensRateLimited(retry_after=retry_after_seconds(response.headers.get("Retry-After")))
                 if response.status >= 500 and mutation:
                     raise SangensCommandUncertain("Результат команды неизвестен. Проверьте состояние печи")
                 if response.status >= 400 or 300 <= response.status < 400:

@@ -10,7 +10,8 @@ async def test_одно_подключение_и_выбор_печи(hass, devi
     with patch('custom_components.sangens.api.SangensClient._request', AsyncMock(return_value={"items": [device_data]})), \
          patch('custom_components.sangens.async_setup_entry', AsyncMock(return_value=True)):
         result = await hass.config_entries.flow.async_init('sangens', context={"source": config_entries.SOURCE_USER})
-        assert result['type'] is FlowResultType.FORM
+        assert result['type'] is FlowResultType.MENU
+        result = await hass.config_entries.flow.async_configure(result['flow_id'], {'next_step_id':'token'})
         result = await hass.config_entries.flow.async_configure(result['flow_id'], {"access_token": "synthetic-token"})
         assert result['step_id'] == 'devices'
         result = await hass.config_entries.flow.async_configure(result['flow_id'], {"binding_ids": ["binding-17"]})
@@ -26,6 +27,7 @@ async def test_одно_подключение_и_выбор_печи(hass, devi
 async def test_отказ_входа_не_сохраняет_токен(hass):
     with patch('custom_components.sangens.api.SangensClient._request', AsyncMock(side_effect=SangensAuthError('Нужен вход'))):
         result = await hass.config_entries.flow.async_init('sangens', context={"source": 'user'})
+        result = await hass.config_entries.flow.async_configure(result['flow_id'], {'next_step_id':'token'})
         result = await hass.config_entries.flow.async_configure(result['flow_id'], {"access_token": "bad-token"})
     assert result['errors'] == {'base': 'invalid_auth'}
     assert hass.config_entries.async_entries('sangens') == []
@@ -35,6 +37,7 @@ async def test_повторный_вход_не_подменяет_печь(hass
     entry.add_to_hass(hass)
     with patch('custom_components.sangens.api.SangensClient._request', AsyncMock(return_value={"items": [device_data]})):
         result = await hass.config_entries.flow.async_init('sangens', context={'source': 'reauth', 'entry_id': entry.entry_id}, data=entry.data)
+        result = await hass.config_entries.flow.async_configure(result['flow_id'], {'next_step_id':'reauth_confirm'})
         result = await hass.config_entries.flow.async_configure(result['flow_id'], {"access_token": "new"})
     assert result['errors'] == {'base': 'wrong_account'}
     assert entry.data['access_token'] == 'old'
@@ -44,6 +47,7 @@ async def test_успешный_повторный_вход_сохраняет_�
     entry.add_to_hass(hass)
     with patch('custom_components.sangens.api.SangensClient._request', AsyncMock(return_value={'items':[device_data]})), patch.object(hass.config_entries,'async_reload',AsyncMock(return_value=True)):
         result = await hass.config_entries.flow.async_init('sangens',context={'source':'reauth','entry_id':entry.entry_id},data=entry.data)
+        result = await hass.config_entries.flow.async_configure(result['flow_id'],{'next_step_id':'reauth_confirm'})
         result = await hass.config_entries.flow.async_configure(result['flow_id'],{'access_token':'new-token'})
     assert result['type'] is FlowResultType.ABORT
     assert result['reason'] == 'reauth_successful'

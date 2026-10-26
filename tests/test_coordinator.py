@@ -142,3 +142,14 @@ async def test_вторая_команда_не_ставится_в_очеред
         finish.set()
         await first
     assert client.set_power.await_count == 1
+
+async def test_retry_after_сервиса_защищает_и_ручной_опрос(coordinator):
+    from custom_components.sangens.auth import SangensRateLimited
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+    state,client,_=coordinator
+    client.get_device.side_effect=SangensRateLimited(retry_after=1800)
+    with pytest.raises(UpdateFailed):await state._async_update_data()
+    requests=client.get_device.await_count
+    with pytest.raises(UpdateFailed):await state._async_update_data()
+    assert client.get_device.await_count==requests
+    assert state.update_interval.total_seconds()>=1799

@@ -1,4 +1,5 @@
 """Общее подключение печей Sangens к Home Assistant."""
+from uuid import uuid4
 from pathlib import Path
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
@@ -18,7 +19,9 @@ async def async_setup(hass, config):
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    client = SangensClient(async_get_clientsession(hass), entry.data['access_token'])
+    if not entry.data.get('device_id'):
+        hass.config_entries.async_update_entry(entry,data={**entry.data,'device_id':uuid4().hex})
+    client = SangensClient(async_get_clientsession(hass), entry.data['access_token'],device_id=entry.data['device_id'])
     coordinator = SangensCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
