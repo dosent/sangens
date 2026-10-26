@@ -1,10 +1,17 @@
 {
   "domain": "sangens",
-  "name": "Sangens Station",
-  "codeowners": ["@dosent"],
+  "name": "Печь Sangens",
+  "codeowners": [
+    "@dosent"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
   "documentation": "https://github.com/dosent/sangens",
-  "iot_class": "local_polling",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/dosent/sangens/issues",
   "requirements": [],
-  "version": "0.0.1"
+  "version": "0.1.0"
 }

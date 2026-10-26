@@ -1,0 +1,7 @@
+# Добавляется один раз в общую панель. Идентификаторы замените своими.
+type: custom:sangens-card
+entity: climate.sauna_vozdukh
+title: Сауна
+mode_entity: select.sauna_rezhim
+stone_target_entity: number.sauna_zadannaia_temperatura_kamnei
+smoke_url: /local/sangens/background.mp4

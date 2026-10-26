@@ -1,8 +1,6 @@
 {
-  "name": "Module for managing Sangens",
+  "name": "Печь Sangens",
   "country": "RU",
-  "render_readme": false,
-  "zip_release": true,
-  "filename": "sangens_managing.zip",
-  "homeassistant":  "2026.4.0"
+  "render_readme": true,
+  "homeassistant": "2026.10.4"
 }

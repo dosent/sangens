@@ -1,12 +1,43 @@
-![version_badge](https://img.shields.io/badge/minimum%20HA%20version-2026.4-red)
+# Печь Sangens в Home Assistant
 
-# Компонент для управления для электрические печи для бани и сауны фирмы [Sangens] (https://sangens.com/ru/")
+Предварительная интеграция и адаптивная карточка для Sangens W12G с блоком управления Sangens 6–9. Проверенное окружение разработки: Home Assistant 2026.10.4, Python 3.14.
 
-## Важно Important
-Компонент создается с применением методов обратного проектирования, поскольку официальный производитель отказался предоставить необходимую документацию. Интеграция осуществляется на ваш страх и риск, и ни разработчик, ни производитель не несут ответственности за корректность работы данного компонента. С моей стороны будут предприняты максимальные меры для того, чтобы избежать любых негативных последствий для вашего оборудования.
+## Что реализовано
 
-The component is being developed using reverse engineering techniques because the official manufacturer has refused to provide the necessary documentation. Integration is carried out at your own risk, and neither the developer nor the manufacturer assumes responsibility for its proper functioning. On my part, I will take all possible measures to prevent any negative impact on your equipment.
+- Одно серверное подключение для всех пользователей и устройств HA.
+- Температура воздуха, её уставка, температуры камней и режим печи.
+- Отдельные команды включения и выключения с проверкой состояния, идентификаторов и ограничений температуры.
+- Режим только чтения по умолчанию. Управление разрешает администратор.
+- Карточка «Сауна» с крупными показаниями, подтверждением запуска и необязательным локальным видео дыма.
+- Замедление опроса при сбоях и отсутствие автоматического повторения команд.
 
-## Установка Installation
+## Что ещё не готово
+
+**Вход по почте и коду из письма не реализован:** штатная невидимая CAPTCHA Sangens пока не имеет подтверждённого способа прохождения из HA. В сборке есть предварительная настройка через легитимно предоставленный токен. Компонент не извлекает токены из приложения или браузера и не обходит CAPTCHA.
+
+Пока проверены искусственные ответы API. Подключение к действующему аккаунту и выполнение команд настоящей печью не проверены. Проект нельзя считать готовым к обычной установке и эксплуатации. Оригинальные ресурсы приложения Sangens в публичный репозиторий не включены.
+
+## Документация
+
+- [Установка, общая настройка и откат](docs/installation.md).
+- [Карточка и локальный дым](docs/card.md).
+- [Пример карточки](examples/dashboard.yaml).
+- [Восстановленный протокол и ограничения входа](docs/protocol.md).
+- [Согласованная спецификация](docs/superpowers/specs/2026-10-27-sangens-ha-design.md).
+- [План реализации](docs/superpowers/plans/2026-10-27-sangens-ha-control.md).
+- [Правила проекта](AGENTS.md).
+
 ### HACS
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration) [![HACS Action](https://github.com/dosent/sangens/actions/workflows/hacs.yml/badge.svg)](https://github.com/dosent/sangens/actions/workflows/hacs.yml) [![Validate with hassfest](https://github.com/dosent/sangens/actions/workflows/hassfest.yml/badge.svg)](https://github.com/dosent/sangens/actions/workflows/hassfest.yml)
+
+[![HACS](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration)
+[![Проверка HACS](https://github.com/dosent/sangens/actions/workflows/tests.yml/badge.svg?label=HACS)](https://github.com/dosent/sangens/actions/workflows/tests.yml)
+[![Проверка hassfest](https://github.com/dosent/sangens/actions/workflows/tests.yml/badge.svg?label=hassfest)](https://github.com/dosent/sangens/actions/workflows/tests.yml)
+![Минимальная версия Home Assistant](https://img.shields.io/badge/minimum%20HA%20version-2026.10.4-red)
+
+Значки HACS и hassfest показывают результат общего процесса «Проверки Sangens»: он включает тесты Python и карточки, HACS и hassfest. Ежедневный запуск сохранён только для hassfest.
+
+Разработка и пользовательский интерфейс ведутся на русском языке. Стандартные программные имена HA, протокол Sangens и исходный текст лицензии сохраняются.
+
+## Ограничения
+
+Это неофициальный компонент, основанный на исследовании предоставленного владельцем приложения. Он не заменяет штатные защиты контроллера. При запуске HA, восстановлении связи или открытии карточки печь не включается. Расписания и отложенный запуск не поддерживаются. Подтверждение запуска в карточке не ограничивает прямой вызов служб авторизованными пользователями HA.

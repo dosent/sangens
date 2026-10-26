@@ -1,0 +1,12 @@
+{
+  "name": "sangens-ha-card",
+  "private": true,
+  "type": "module",
+  "description": "Карточка печи Sangens для Home Assistant",
+  "scripts": {
+    "test": "node --test frontend/*.test.mjs"
+  },
+  "devDependencies": {
+    "happy-dom": "^21.0.4"
+  }
+}
