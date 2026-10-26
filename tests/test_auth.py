@@ -74,3 +74,25 @@ async def test_ограничение_частоты_сохраняет_пауз
         await client.request_code('person@example.test')
     assert error.value.retry_after==1800
     assert len(state['calls'])==1
+
+@pytest.mark.parametrize('status,body,expected_name',[
+ (422,{'message':'Recaptcha is invalid','errors':None},'SangensCaptchaRequired'),
+ (403,{'errors':{'recaptcha_token':['Нужна проверка']}},'SangensCaptchaRequired'),
+ (422,{'message':'Device Id header is invalid','errors':None},'SangensUnsupportedClient'),
+ (426,{'message':'Application version is invalid'},'SangensUnsupportedClient'),
+ (422,{'errors':{'email':['Неверная почта']}},'SangensInvalidEmail'),
+ (403,{'message':'Unexpected refusal person@example.test 123456','errors':None},'SangensAuthRejected'),
+])
+async def test_причина_отказа_письма_не_теряется(login_service,caplog,status,body,expected_name):
+    client,state=login_service;state.update(status=status,body=body)
+    try:
+        await client.request_code('person@example.test')
+    except Exception as error:
+        assert type(error).__name__==expected_name
+        assert 'person@example.test' not in str(error)
+        assert '123456' not in str(error)
+    else:
+        pytest.fail('Отказ сервера должен быть явным')
+    assert len(state['calls'])==1
+    assert 'person@example.test' not in caplog.text
+    assert '123456' not in caplog.text

@@ -8,7 +8,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import selector
 from .api import SangensClient, SangensAuthError, SangensConnectionError
-from .auth import SangensAuthClient, SangensCaptchaRequired, SangensInvalidCode, SangensRateLimited
+from .auth import SangensAuthClient, SangensCaptchaRequired, SangensInvalidCode, SangensRateLimited, SangensInvalidEmail, SangensUnsupportedClient, SangensAuthRejected
 from .const import DOMAIN
 from .models import SangensProtocolError
 
@@ -79,8 +79,14 @@ class SangensConfigFlow(config_entries.ConfigFlow,domain=DOMAIN):
                 except ValueError:
                     self._limits()['next_email']=0
                     errors['base']='invalid_email'
-                except SangensInvalidCode:
+                except SangensInvalidEmail:
                     errors['base']='invalid_email'
+                except SangensUnsupportedClient:
+                    self._pause()
+                    errors['base']='unsupported_client'
+                except SangensAuthRejected:
+                    self._pause()
+                    errors['base']='auth_rejected'
                 except SangensConnectionError:
                     errors['base']='cannot_connect'
                 except SangensProtocolError:
@@ -116,6 +122,12 @@ class SangensConfigFlow(config_entries.ConfigFlow,domain=DOMAIN):
                         self._pause()
                         return self.async_abort(reason='too_many_attempts')
                     errors['base']='invalid_code'
+                except SangensUnsupportedClient:
+                    self._pause()
+                    errors['base']='unsupported_client'
+                except (SangensAuthRejected,SangensInvalidEmail):
+                    self._pause()
+                    errors['base']='auth_rejected'
                 except ValueError:
                     errors['base']='invalid_code'
                 except SangensConnectionError:

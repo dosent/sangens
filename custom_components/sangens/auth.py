@@ -1,11 +1,23 @@
 """Ручной вход по почте: без фоновых повторов и поддельных CAPTCHA."""
 import asyncio
 import re
+import logging
 import aiohttp
 from .const import API_URL
 from .headers import request_headers, retry_after_seconds
 from .api import SangensConnectionError, SangensRateLimited
 from .models import SangensProtocolError
+
+_LOGGER=logging.getLogger(__name__)
+
+class SangensInvalidEmail(Exception):
+    """Сервис явно отклонил поле почты."""
+
+class SangensUnsupportedClient(Exception):
+    """Отклонены версия или обязательные заголовки клиента."""
+
+class SangensAuthRejected(Exception):
+    """Другой отказ сервиса: не выдавать его за ошибку почты."""
 
 class SangensCaptchaRequired(Exception):
     """Сервис запросил штатную проверку пользователя."""
@@ -39,10 +51,23 @@ class SangensAuthClient:
                 if not isinstance(body,dict):
                     raise SangensProtocolError('Неизвестный ответ сервиса входа')
                 errors=body.get('errors')
-                if response.status>=400 and isinstance(errors,dict) and {'recaptcha','captcha'} & errors.keys():
-                    raise SangensCaptchaRequired('Sangens запросил проверку CAPTCHA. Автоматические попытки остановлены')
-                if response.status in (401,403,422):
-                    raise SangensInvalidCode('Данные входа отклонены или срок кода истёк')
+                fields={str(key).casefold() for key in errors} if isinstance(errors,dict) else set()
+                message=body.get('message')
+                text=message.casefold() if isinstance(message,str) else ''
+                if response.status>=400:
+                    reason='unknown'
+                    exception=SangensAuthRejected
+                    if any('captcha' in key for key in fields) or 'captcha' in text or 'капч' in text:
+                        reason='captcha';exception=SangensCaptchaRequired
+                    elif response.status==426 or any(term in text for term in ('device id header','platform header','version is invalid','version header')):
+                        reason='client';exception=SangensUnsupportedClient
+                    elif 'email' in fields:
+                        reason='email';exception=SangensInvalidEmail
+                    elif path in ('/email/check','/auth/loginByEmail') and fields & {'code','emailtoken','token'}:
+                        reason='code';exception=SangensInvalidCode
+                    # Только заранее определённые признаки. Ответ сервера, почта и код не логируются.
+                    _LOGGER.warning('Sangens: отказ входа; endpoint=%s; HTTP=%s; причина=%s',path,response.status,reason)
+                    raise exception('Sangens отклонил запрос входа')
                 if response.status not in (200,201):
                     raise SangensConnectionError('Сервис входа отклонил запрос')
                 data=body.get('data')
