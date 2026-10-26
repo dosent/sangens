@@ -20,4 +20,9 @@ class SangensEntity(CoordinatorEntity):
 
     @property
     def available(self):
-        return super().available and self.binding in (self.coordinator.data or {}) and self.snapshot.online
+        return super().available and self.binding in (self.coordinator.data or {})
+
+    @property
+    def extra_state_attributes(self):
+        # Статус контроллера не определяет доступность ответа облака.
+        return {'controller_online': self.snapshot.online}

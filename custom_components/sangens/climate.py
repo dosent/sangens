@@ -47,7 +47,7 @@ class SangensClimate(SangensEntity, ClimateEntity):
 
     @property
     def extra_state_attributes(self):
-        return {'auth_required': self.coordinator.auth_required,
+        return {**super().extra_state_attributes, 'auth_required': self.coordinator.auth_required,
                 'connection_available': self.available,
                 'control_allowed': self.coordinator.entry.options.get('allow_control', False),
                 'limits_known': self.snapshot.air_limits is not None,

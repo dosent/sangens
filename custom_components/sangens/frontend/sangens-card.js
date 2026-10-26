@@ -84,8 +84,8 @@ class SangensCard extends HTMLElement {
     const state=this._hass?.states?.[this._config.entity];const attrs=state?.attributes||{};
     const known=state&&['off','heat'].includes(state.state);const on=known&&state.state==='heat';
     const reachable=!!state&&state.state!=='unavailable'&&(known||attrs.connection_available===true);
-    const writable=known&&attrs.control_allowed===true&&!this._pending;
-    const status=!state?'Сущность не найдена':attrs.auth_required?'Нужен вход':state.state==='unavailable'?'Нет связи':!known?'Состояние неизвестно':!on?'Выключена':attrs.hvac_action==='heating'?'Нагревает':'Включена';
+    const writable=known&&attrs.controller_online!==false&&attrs.control_allowed===true&&!this._pending;
+    const status=!state?'Сущность не найдена':attrs.auth_required?'Нужен вход':state.state==='unavailable'?'Нет связи':attrs.controller_online===false?'Статус Sangens: offline':!known?'Состояние неизвестно':!on?'Выключена':attrs.hvac_action==='heating'?'Нагревает':'Включена';
     this._find('ha-card').classList.toggle('active',!!on);
     this._find('[data-title]').textContent=this._config.title||'Сауна';
     this._find('[data-status]').textContent=this._pending?'Отправка команды…':status;
@@ -98,7 +98,7 @@ class SangensCard extends HTMLElement {
     if(this.shadowRoot.activeElement!==slider && Number.isFinite(attrs.temperature))slider.value=attrs.temperature;
     this._find('[data-range]').textContent=limits?`${attrs.min_temp}–${attrs.max_temp} °C`:'';
     this._find('[data-start]').disabled=!(writable&&!on&&limits&&Number.isFinite(attrs.current_temperature));
-    this._find('[data-stop]').disabled=!(reachable&&attrs.control_allowed===true&&!this._pending);
+    this._find('[data-stop]').disabled=!(reachable&&attrs.controller_online!==false&&attrs.control_allowed===true&&!this._pending);
     this._find('[data-note]').textContent=attrs.auth_required?'Администратору нужно восстановить подключение в настройках интеграции Sangens.':attrs.control_allowed!==true?'Только чтение. Управление разрешается администратором в настройках интеграции.':!on?'Печь не запустится от изменения настроек или открытия карточки.':'Показания обновляются через Home Assistant.';
     const mode=this._hass?.states?.[this._config.mode_entity];const select=this._find('[data-mode]');
     select.hidden=!mode;this._find('[data-mode-label]').hidden=!mode;select.disabled=!(writable&&on);

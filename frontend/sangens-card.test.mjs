@@ -85,3 +85,13 @@ test('запрет автопроигрывания оставляет рабо�
  card._videoFailed=false;card._update();await new Promise(resolve=>setTimeout(resolve,0));
  assert.equal(video.hidden,true);assert.equal(card.shadowRoot.querySelector('[data-stop]').disabled,false);
 });
+
+test('offline облака показывает температуры и отдельный статус без команд',()=>{
+ const offline=entity('off');offline.attributes.controller_online=false;
+ card.hass={states:{'climate.sauna':offline},callService:async(...args)=>calls.push(args)};
+ assert.match(card.shadowRoot.querySelector('[data-current]').textContent,/28,7/);
+ assert.match(card.shadowRoot.querySelector('[data-status]').textContent,/offline/);
+ assert.equal(card.shadowRoot.querySelector('[data-start]').disabled,true);
+ assert.equal(card.shadowRoot.querySelector('[data-stop]').disabled,true);
+ assert.equal(card.shadowRoot.querySelector('[data-target]').disabled,true);
+});

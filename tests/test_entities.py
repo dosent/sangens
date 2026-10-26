@@ -82,3 +82,33 @@ async def test_поздние_данные_добавляют_сущности_�
         assert entity_id(hass,'number','stone_target') is not None
         assert hass.states.get(entity_id(hass,'sensor','second_stone')).state == '79.0'
         await hass.config_entries.async_unload(entry.entry_id)
+
+async def test_offline_не_скрывает_обновляемые_показания_облака(hass, loaded, device_data):
+    entry,calls=loaded
+    device_data['microchip']['connectionStatus']='offline'
+    device_data['microchip']['data']['currentAirTemperature']=29.1
+    device_data['microchip']['data']['firstStoneTemperature']=80
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    state=hass.states.get(entity_id(hass,'climate','air'))
+    assert state.state=='heat'
+    assert state.attributes['current_temperature']==29.1
+    assert state.attributes['controller_online'] is False
+    assert hass.states.get(entity_id(hass,'sensor','stone')).state=='80.0'
+    device_data['microchip']['data']['currentAirTemperature']=29.3
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id(hass,'climate','air')).attributes['current_temperature']==29.3
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call('climate','turn_on',{'entity_id':entity_id(hass,'climate','air')},blocking=True)
+    assert all(call[0]=='GET' for call in calls)
+
+async def test_сбой_облака_делает_показания_недоступными(hass,loaded):
+    from custom_components.sangens.api import SangensConnectionError
+    entry,_=loaded
+    async def failure(*args,**kwargs):raise SangensConnectionError('Нет ответа облака')
+    with patch.object(SangensClient,'_request',failure):
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+    assert hass.states.get(entity_id(hass,'climate','air')).state=='unavailable'
+    assert hass.states.get(entity_id(hass,'sensor','stone')).state=='unavailable'
