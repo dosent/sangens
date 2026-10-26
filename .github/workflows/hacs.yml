@@ -1,5 +1,5 @@
 # https://github.com/hacs/action
-name: HACS Action
+name: Проверка HACS
 
 # yamllint disable-line rule:truthy
 on:
@@ -13,11 +13,11 @@ on:
 
 jobs:
   hacs:
-    name: HACS Action
+    name: Проверка HACS
     runs-on: "ubuntu-latest"
     steps:
       - uses: "actions/checkout@v2"
-      - name: HACS Action
+      - name: Проверка HACS
         uses: "hacs/action@main"
         with:
           category: "integration"

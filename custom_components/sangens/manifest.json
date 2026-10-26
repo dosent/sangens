@@ -1,6 +1,6 @@
 {
   "domain": "sangens",
-  "name": "Sangens Station",
+  "name": "Печь Sangens",
   "codeowners": ["@dosent"],
   "documentation": "https://github.com/dosent/sangens",
   "iot_class": "local_polling",
