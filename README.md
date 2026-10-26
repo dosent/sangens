@@ -1,4 +1,4 @@
-![version_badge](https://img.shields.io/badge/minimum%20HA%20version-2024.2-red)
+![version_badge](https://img.shields.io/badge/minimum%20HA%20version-2026.4-red)
 
 # Компонент для управления для электрические печи для бани и сауны фирмы [Sangens] (https://sangens.com/ru/")
 
