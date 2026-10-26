@@ -96,3 +96,18 @@ async def test_причина_отказа_письма_не_теряется(lo
     assert len(state['calls'])==1
     assert 'person@example.test' not in caplog.text
     assert '123456' not in caplog.text
+
+async def test_результат_captcha_передается_однократно_без_журнала(login_service,caplog):
+    client,state=login_service
+    state['body']={'data':{'emailToken':'challenge-token'}}
+    assert await client.request_code('person@example.test',recaptcha='human-verification')=='challenge-token'
+    assert state['calls'][0][1]=={'email':'person@example.test','recaptcha':'human-verification'}
+    assert len(state['calls'])==1
+    assert 'human-verification' not in caplog.text
+
+@pytest.mark.parametrize('proof',['', 'contains whitespace', 'x'*8193])
+async def test_пустой_или_поврежденный_результат_captcha_не_отправляется(login_service,proof):
+    client,state=login_service
+    with pytest.raises(SangensProtocolError):
+        await client.request_code('person@example.test',recaptcha=proof)
+    assert state['calls']==[]

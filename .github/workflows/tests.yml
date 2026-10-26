@@ -50,3 +50,17 @@ jobs:
         uses: actions/checkout@v4
       - name: Проверить интеграцию Home Assistant
         uses: home-assistant/actions/hassfest@master
+
+  helper:
+    name: Проверка помощника macOS
+    if: github.event_name != 'schedule'
+    runs-on: macos-latest
+    steps:
+      - name: Получить исходники
+        uses: actions/checkout@v4
+      - name: Проверить состояние помощника
+        run: |
+          swiftc -module-cache-path .swift-module-cache tools/sangens-setup/VerificationState.swift tools/sangens-setup/state-tests.swift -o /tmp/sangens-state-tests
+          /tmp/sangens-state-tests
+      - name: Собрать приложение
+        run: python3 tools/sangens-setup/build.py /tmp/sangens-helper

@@ -12,3 +12,5 @@ htmlcov/
 *.har
 *.log
 node_modules/
+.swift-module-cache/
+*.app/

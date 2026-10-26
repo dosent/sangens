@@ -70,8 +70,8 @@ async def test_запрос_captcha_не_обходится_и_не_повтор
     request,_,_=login_mocks;request.side_effect=SangensCaptchaRequired('Нужна CAPTCHA')
     result=await start_email(hass)
     result=await hass.config_entries.flow.async_configure(result['flow_id'],{'email':'person@example.test'})
-    assert result['type'] is FlowResultType.ABORT
-    assert result['reason']=='captcha_required'
+    assert result['type'] is FlowResultType.FORM
+    assert result['step_id']=='captcha'
     assert request.await_count==1
 
 async def test_новый_аккаунт_не_регистрируется_автоматически(hass,login_mocks):
@@ -150,3 +150,63 @@ async def test_почтовый_повторный_вход_сохраняет_�
     assert entry.data['device_id']=='persisted-ha-client'
     assert entry.data['microchip_ids']=={'binding-17':'chip-42'}
     assert entry.options=={'allow_control':False}
+
+async def test_ручная_captcha_продолжает_вход_и_не_сохраняется(hass,login_mocks):
+    request,_,_=login_mocks
+    request.side_effect=[SangensCaptchaRequired(), 'email-challenge']
+    result=await start_email(hass)
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'email':'person@example.test'})
+    assert result['step_id']=='captcha'
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'recaptcha':'user-verification-result'})
+    assert result['step_id']=='email_code'
+    assert 'user-verification-result' not in str(result)
+    request.assert_awaited_with('person@example.test',recaptcha='user-verification-result')
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'code':'123456'})
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'binding_ids':['binding-17']})
+    assert result['data']['access_token']=='account-session'
+    assert 'recaptcha' not in result['data']
+    assert 'user-verification-result' not in str(result['data'])
+    await hass.async_block_till_done()
+
+async def test_отклоненная_captcha_не_повторяется_автоматически(hass,login_mocks):
+    request,_,_=login_mocks;request.side_effect=SangensCaptchaRequired()
+    result=await start_email(hass)
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'email':'person@example.test'})
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'recaptcha':'rejected-verification'})
+    assert result['step_id']=='captcha'
+    assert result['errors']=={'base':'captcha_rejected'}
+    assert request.await_count==2
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'recaptcha':'rejected-verification'})
+    assert result['errors']=={'base':'captcha_reused'}
+    assert request.await_count==2
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'recaptcha':'second-verification'})
+    assert result['reason']=='captcha_failed'
+    assert request.await_count==3
+
+async def test_429_на_captcha_сохраняет_общую_паузу(hass,login_mocks):
+    from custom_components.sangens.auth import SangensRateLimited
+    request,_,_=login_mocks
+    request.side_effect=[SangensCaptchaRequired(),SangensRateLimited(retry_after=1800)]
+    result=await start_email(hass)
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'email':'person@example.test'})
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'recaptcha':'verification-result'})
+    assert result['errors']=={'base':'wait_before_retry'}
+    result=await hass.config_entries.flow.async_configure(result['flow_id'],{'recaptcha':'new-result'})
+    assert result['errors']=={'base':'wait_before_retry'}
+    assert request.await_count==2
+
+async def test_вторая_captcha_не_сокращает_retry_after(hass,login_mocks):
+    from custom_components.sangens.auth import SangensRateLimited
+    request,_,_=login_mocks
+    request.side_effect=[SangensCaptchaRequired(),SangensCaptchaRequired(),SangensRateLimited(retry_after=1800)]
+    with patch('custom_components.sangens.config_flow.monotonic',return_value=1000):
+        result=await start_email(hass)
+        result=await hass.config_entries.flow.async_configure(result['flow_id'],{'email':'person@example.test'})
+        result=await hass.config_entries.flow.async_configure(result['flow_id'],{'recaptcha':'first-proof'})
+        result=await hass.config_entries.flow.async_configure(result['flow_id'],{'recaptcha':'second-proof'})
+        assert result['reason']=='captcha_failed'
+    with patch('custom_components.sangens.config_flow.monotonic',return_value=1600):
+        result=await start_email(hass)
+        result=await hass.config_entries.flow.async_configure(result['flow_id'],{'email':'person@example.test'})
+    assert result['errors']=={'base':'wait_before_retry'}
+    assert request.await_count==3

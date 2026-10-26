@@ -78,10 +78,13 @@ class SangensAuthClient:
             # При тайм-ауте письмо уже могло уйти. Повтор возможен только вручную после паузы.
             raise SangensConnectionError('Ответ на запрос входа не получен. Запрос автоматически не повторялся') from err
 
-    async def request_code(self,email: str) -> str:
+    async def request_code(self,email: str,*,recaptcha: str|None=None) -> str:
         if not isinstance(email,str) or len(email)>254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email):
             raise ValueError('Укажите корректную почту аккаунта Sangens')
-        return _secret((await self._post('/email/send',{'email':email})).get('emailToken'))
+        payload={'email':email}
+        if recaptcha is not None:
+            payload['recaptcha']=_secret(recaptcha)
+        return _secret((await self._post('/email/send',payload)).get('emailToken'))
 
     async def check_code(self,email_token: str,code: str) -> bool:
         self._validate_code(code)

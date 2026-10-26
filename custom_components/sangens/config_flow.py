@@ -1,5 +1,6 @@
 """Ручной вход и одна серверная настройка для всех пользователей HA."""
 from time import monotonic
+from hashlib import sha256
 from functools import wraps
 from uuid import uuid4
 import voluptuous as vol
@@ -14,6 +15,7 @@ from .models import SangensProtocolError
 
 TOKEN_SCHEMA=vol.Schema({vol.Required('access_token'):selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))})
 EMAIL_SCHEMA=vol.Schema({vol.Required('email'):selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.EMAIL))})
+CAPTCHA_SCHEMA=vol.Schema({vol.Required('recaptcha'):selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))})
 CODE_SCHEMA=vol.Schema({vol.Required('code'):selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))})
 
 def _serial_step(step,schema):
@@ -47,7 +49,7 @@ class SangensConfigFlow(config_entries.ConfigFlow,domain=DOMAIN):
         return monotonic()<self._limits().get('blocked_until',0)
 
     def _pause(self,seconds=300):
-        self._limits()['blocked_until']=monotonic()+max(300,seconds)
+        self._limits()['blocked_until']=max(self._limits().get('blocked_until',0),monotonic()+max(300,seconds))
 
     async def async_step_user(self,user_input=None):
         await self.async_set_unique_id('shared')
@@ -71,8 +73,11 @@ class SangensConfigFlow(config_entries.ConfigFlow,domain=DOMAIN):
                     self._email_expires=monotonic()+900
                     return self.async_show_form(step_id='email_code',data_schema=CODE_SCHEMA)
                 except SangensCaptchaRequired:
-                    self._pause()
-                    return self.async_abort(reason='captcha_required')
+                    self._captcha_tries=0
+                    self._captcha_used=set()
+                    self._captcha_expires=monotonic()+900
+                    self._captcha_retry_after=0
+                    return self.async_show_form(step_id='captcha',data_schema=CAPTCHA_SCHEMA)
                 except SangensRateLimited as err:
                     self._pause(err.retry_after)
                     errors['base']='wait_before_retry'
@@ -92,6 +97,53 @@ class SangensConfigFlow(config_entries.ConfigFlow,domain=DOMAIN):
                 except SangensProtocolError:
                     errors['base']='invalid_response'
         return self.async_show_form(step_id='email',data_schema=EMAIL_SCHEMA,errors=errors)
+
+    @_serial_step('captcha',CAPTCHA_SCHEMA)
+    async def async_step_captcha(self,user_input=None):
+        """Только настоящий результат ручной проверки, без повторного использования."""
+        errors={}
+        if not getattr(self,'_email',None) or monotonic()>getattr(self,'_captcha_expires',0):
+            return self.async_abort(reason='code_expired')
+        if user_input is not None:
+            proof=user_input['recaptcha'].strip()
+            fingerprint=sha256(proof.encode()).hexdigest()
+            if self._blocked() or monotonic()<self._captcha_retry_after:
+                errors['base']='wait_before_retry'
+            elif fingerprint in self._captcha_used:
+                errors['base']='captcha_reused'
+            elif not proof or len(proof)>8192 or any(c.isspace() for c in proof):
+                errors['base']='captcha_rejected'
+            else:
+                self._captcha_used.add(fingerprint)
+                self._captcha_tries+=1
+                # Не сохраняем сам результат даже в состоянии потока. После тайм-аута он уже мог быть использован.
+                self._limits()['next_email']=monotonic()+60
+                self._captcha_retry_after=monotonic()+60
+                try:
+                    self._email_token=await self._ensure_client().request_code(self._email,recaptcha=proof)
+                    self._email_tries=0
+                    self._email_expires=monotonic()+900
+                    return self.async_show_form(step_id='email_code',data_schema=CODE_SCHEMA)
+                except SangensCaptchaRequired:
+                    self._captcha_retry_after=0
+                    errors['base']='captcha_rejected'
+                except SangensRateLimited as err:
+                    self._pause(err.retry_after)
+                    errors['base']='wait_before_retry'
+                except SangensConnectionError:
+                    errors['base']='cannot_connect'
+                except SangensUnsupportedClient:
+                    self._pause()
+                    errors['base']='unsupported_client'
+                except (SangensAuthRejected,SangensInvalidEmail):
+                    self._pause()
+                    errors['base']='auth_rejected'
+                except (ValueError,SangensProtocolError):
+                    errors['base']='invalid_response'
+                if self._captcha_tries>=2:
+                    self._pause()
+                    return self.async_abort(reason='captcha_failed')
+        return self.async_show_form(step_id='captcha',data_schema=CAPTCHA_SCHEMA,errors=errors)
 
     @_serial_step('email_code',CODE_SCHEMA)
     async def async_step_email_code(self,user_input=None):

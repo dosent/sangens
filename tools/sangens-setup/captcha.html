@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font:16px -apple-system,sans-serif;color:#dce6ee;background:#17212b;padding:20px;line-height:1.5}a{color:#87ceeb}</style>
+</head><body>
+<p>Проверка Google reCAPTCHA</p>
+<p>Нажмите «Пройти проверку» вверху окна. Если Google покажет задание, выполните его здесь.</p>
+<p>Используются <a href="https://policies.google.com/privacy">политика конфиденциальности</a> и <a href="https://policies.google.com/terms">условия Google</a>.</p>
+<script>
+const siteKey='6Le70VolAAAAADdOfZWS7vzYUXXmy7fyl7v9CrXU';
+let pending=false;
+function report(kind,value='',request=''){window.webkit.messageHandlers.captcha.postMessage({kind,value,request});}
+// Вызывается только явной кнопкой пользователя в нативном интерфейсе.
+function beginVerification(request){
+  if(pending)return;
+  if(!window.grecaptcha){report('error','',request);return;}
+  pending=true;
+  const deadline=setTimeout(()=>{pending=false;report('error','',request);},180000);
+  window.grecaptcha.ready(function(){
+    window.grecaptcha.execute(siteKey).then(function(result){clearTimeout(deadline);pending=false;report('result',result,request);},function(){clearTimeout(deadline);pending=false;report('error','',request);});
+  });
+}
+function sdkReady(){report('ready');}
+</script>
+<script async defer onerror="report('sdk-error')" src="https://www.google.com/recaptcha/api.js?render=6Le70VolAAAAADdOfZWS7vzYUXXmy7fyl7v9CrXU&amp;onload=sdkReady"></script>
+</body></html>
