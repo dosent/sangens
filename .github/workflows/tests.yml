@@ -1,9 +1,13 @@
-name: Тесты интеграции и карточки
+name: Проверки Sangens
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
 jobs:
   tests:
+    if: github.event_name != 'schedule'
     name: Проверки Python и JavaScript
     runs-on: ubuntu-latest
     steps:
@@ -26,3 +30,23 @@ jobs:
         run: npm ci
       - name: Проверить карточку
         run: npm test
+
+  hacs:
+    name: Проверка HACS
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить исходники
+        uses: actions/checkout@v4
+      - name: Проверить совместимость с HACS
+        uses: hacs/action@main
+        with:
+          category: integration
+  hassfest:
+    name: Проверка hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить исходники
+        uses: actions/checkout@v4
+      - name: Проверить интеграцию Home Assistant
+        uses: home-assistant/actions/hassfest@master

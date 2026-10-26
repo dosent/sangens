@@ -30,8 +30,8 @@
 ## Проверки
 
 [![Тесты интеграции и карточки](https://github.com/dosent/sangens/actions/workflows/tests.yml/badge.svg)](https://github.com/dosent/sangens/actions/workflows/tests.yml)
-[![Проверка HACS](https://github.com/dosent/sangens/actions/workflows/hacs.yml/badge.svg)](https://github.com/dosent/sangens/actions/workflows/hacs.yml)
-[![Проверка hassfest](https://github.com/dosent/sangens/actions/workflows/hassfest.yml/badge.svg)](https://github.com/dosent/sangens/actions/workflows/hassfest.yml)
+
+Один процесс GitHub Actions выполняет тесты Python и карточки, HACS и hassfest. Ежедневный запуск сохранён только для hassfest.
 
 Разработка и пользовательский интерфейс ведутся на русском языке. Стандартные программные имена HA, протокол Sangens и исходный текст лицензии сохраняются.
 
